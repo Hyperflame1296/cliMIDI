@@ -1,69 +1,11 @@
 {
-  "name": "climidi",
-  "version": "0.1.0-alpha.rev0",
-  "description": "Play MIDIs in a terminal!",
-  "keywords": [
-    "midi",
-    "cli",
-    "terminal",
-    "console",
-    "player"
-  ],
-  "homepage": "https://github.com/Hyperflame1296/cliMIDI#readme",
-  "bugs": {
-    "url": "https://github.com/Hyperflame1296/cliMIDI/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Hyperflame1296/cliMIDI.git"
-  },
-  "license": "ISC",
-  "author": "TensiveYT",
-  "type": "commonjs",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "dependencies": {
-    "ansi-regex": "^5.0.1",
-    "ansi-styles": "^4.3.0",
+    "@julusian/midi": "^3.6.1",
     "cli-color": "^2.0.4",
-    "cliui": "^8.0.1",
-    "color-convert": "^2.0.1",
-    "color-name": "^1.1.4",
-    "d": "^1.0.2",
     "easy-file-dialogs": "^1.2.0",
-    "emoji-regex": "^8.0.0",
-    "es5-ext": "^0.10.64",
-    "es6-iterator": "^2.0.3",
-    "es6-symbol": "^3.1.4",
-    "es6-weak-map": "^2.0.3",
-    "escalade": "^3.2.0",
-    "esniff": "^2.0.1",
-    "event-emitter": "^0.3.5",
-    "ext": "^1.7.0",
-    "get-caller-file": "^2.0.5",
-    "is-fullwidth-code-point": "^3.0.0",
-    "is-promise": "^2.2.2",
-    "jazz-midi": "^1.7.9",
     "jzz": "^1.9.5",
     "jzz-midi-smf": "^1.9.9",
-    "lru-queue": "^0.1.0",
-    "memoizee": "^0.4.17",
     "midi-player-js": "^2.0.16",
-    "next-tick": "^1.1.0",
-    "node-addon-api": "^6.1.0",
-    "pkg-prebuilds": "^1.0.0",
-    "require-directory": "^2.1.1",
-    "string-width": "^4.2.3",
-    "strip-ansi": "^6.0.1",
-    "strip-json-comments": "^5.0.3",
-    "timers-ext": "^0.1.8",
-    "type": "^2.7.3",
-    "wrap-ansi": "^7.0.0",
-    "y18n": "^5.0.8",
-    "yargs": "^17.7.2",
-    "yargs-parser": "^21.1.1"
-  },
-  "devDependencies": {}
+    "strip-json-comments": "^5.0.3"
+  }
 }

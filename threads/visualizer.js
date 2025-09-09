@@ -103,6 +103,7 @@ try {
             length: 100
         },
         maxFPS: 60,
+        chosen: 1,
         paused: false,
         loading: false,
     }
@@ -164,8 +165,14 @@ try {
             return 'Loading...'
         else if (info.paused)
             return 'Paused'
+        else if (info.chosen == 1)
+            return 'Playing with jmidiplayer'
+        else if (info.chosen == 2)
+            return 'Playing with JZZ'
+        else if (info.chosen == 3)
+            return 'Playing with MIDIPlayerJS'
         else
-            return 'Playing'
+            return 'Unknown'
     }
     function update() {
         let frame = '';
@@ -248,7 +255,7 @@ try {
                     clearInterval(int)
                     int = setInterval(() => {
                         update()
-                    }, 1000 / info.maxFPS)
+                    }, info.maxFPS <= 0 ? 0 : 1000 / info.maxFPS)
                     break
             }
         })

@@ -29,6 +29,15 @@ let start = (async(chosen) => {
     if (settings.visualizer) var thread = new Worker('./threads/visualizer.js')
     try {
         console.clear()
+        if (settings.visualizer) thread.postMessage({ 
+            m: 'i', 
+            width: process.stdout.columns, 
+            height: process.stdout.rows, 
+            noteBuffer: settings.noteBuffer, 
+            maxFPS: settings.maxFPS, 
+            chosen,
+            paused: false 
+        })
         let midiPath = await dialog.openFileName({
             title: 'Choose a MIDI file.',
             initialDir: 'midis/',
@@ -41,14 +50,6 @@ let start = (async(chosen) => {
             multiple: false
         })
         let q = []
-        if (settings.visualizer) thread.postMessage({ 
-            m: 'i', 
-            width: process.stdout.columns, 
-            height: process.stdout.rows, 
-            noteBuffer: settings.noteBuffer, 
-            maxFPS: settings.maxFPS, 
-            paused: false 
-        })
         let output = new midi.Output();
         for (let i = 0; i < output.getPortCount(); i++) {
             if (output.getPortName(i).includes('Keppy\'s Direct MIDI API')) {

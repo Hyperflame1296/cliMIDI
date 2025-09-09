@@ -200,7 +200,7 @@ class Player extends EventEmitter {
 
                     if (trackIndices.length === 0) continue
 
-                    const worker = new Worker(path.resolve(__dirname, 'jmidiplayer_worker.js'), {
+                    const worker = new Worker(path.resolve(__dirname, 'threads/loader.js'), {
                         workerData: {
                             buffer: buffer,
                             trackIndices,
