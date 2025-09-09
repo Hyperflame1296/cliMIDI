@@ -231,7 +231,22 @@ try {
                     frame += ansi.moveCursor(0, 20) + color.yellowBright(getStatusText())
                     break
                 case 21:
-                    frame += ansi.moveCursor(0, 21) + color.whiteBright('Hit Ctrl+C to exit.')
+                    frame += ansi.moveCursor(0, 21) + color.whiteBright(
+                        info.chosen != 1 ? 
+                            [
+                                'Keybinds:',
+                                '    - Space: pause',
+                                '    - ESC: exit',
+                                '    - left/right arrows: seek (+-3s)'
+                            ].join('\n')
+                        : 
+                            [
+                                'Keybinds:',
+                                '    - Space: pause',
+                                '    - ESC: exit',
+                                'The current MIDI player does not support seeking.'
+                            ].join('\n')
+                    )
                     break
             }
         }

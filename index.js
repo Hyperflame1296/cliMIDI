@@ -40,7 +40,6 @@ let start = (async(chosen) => {
         })
         let midiPath = await dialog.openFileName({
             title: 'Choose a MIDI file.',
-            initialDir: 'midis/',
             fileTypes: [
                 [
                     "MIDI file",
@@ -110,16 +109,17 @@ let start = (async(chosen) => {
                     switch (e.type) {
                         case 8: // note off
                             if (!cc.sustain[e.channel])
-                                output.sendMessage([0x80 | e.channel, e.note, e.velocity])
+                                output.sendMessage([0x80 | e.channel, e.note, 0])
                             break
                         case 9: // note on
                             output.sendMessage([0x90 | e.channel, e.note, e.velocity])
                             if (cc.sustain[e.channel])
-                                pedalNotes.push([0x80 | e.channel, e.note, e.velocity])
+                                pedalNotes.push([0x80 | e.channel, e.note, 0])
                             if (settings.visualizer) {
                                 if (settings.noteBuffer.enabled)
                                     q.push({ t: performance.now() - lastQueue, ...e })
-                                else thread.postMessage({ m: 'n', ...e })
+                                else 
+                                    thread.postMessage({ m: 'n', ...e })
                             }
                             break
                         case 11:
@@ -178,7 +178,8 @@ let start = (async(chosen) => {
                                     if (settings.visualizer) {
                                         if (settings.noteBuffer.enabled)
                                             q.push({ t: performance.now() - lastQueue, ...e })
-                                        else thread.postMessage(e)
+                                        else 
+                                            thread.postMessage(e)
                                     }
                                     break
                             }
@@ -189,30 +190,39 @@ let start = (async(chosen) => {
                     if (settings.visualizer) await thread.terminate()
                     console.clear()
                     console.log(color.greenBright('MIDI file has ended!'))
-                    console.log(color.whiteBright('Hit Ctrl+C to exit now.'))
+                    console.log(color.whiteBright('Hit ESC to exit now.'))
                 })
                 pause = () => {
                     paused ? player.play() : player.pause()
                     paused = !paused
                     if (settings.visualizer) thread.postMessage({ m: 'i', paused })
                 }
+                process.stdin.on('data', e => {
+                    let decoder = new TextDecoder()
+                    let tx = decoder.decode(e)
+                    switch (tx) {
+                        case '\x1b':
+                            console.clear()
+                            console.log(color.redBright('Exited.'))
+                            process.exit()
+                    }
+                });
                 break
             case 2:
                 let widget = JZZ.Widget({
                     _receive: msg => {
                         if (msg.isNoteOff() || (msg.isNoteOn() && msg.getVelocity() <= 0)) {
                             let note = msg.getNote()
-                            let velocity = msg.getVelocity()
                             let channel = msg.getChannel()
                             if (!cc.sustain[channel])
-                                output.sendMessage([0x80 | channel, note, velocity])
+                                output.sendMessage([0x80 | channel, note, 0])
                         } else if (msg.isNoteOn()) {
                             let note = msg.getNote()
                             let velocity = msg.getVelocity()
                             let channel = msg.getChannel()
                             output.sendMessage([0x90 | channel, note, velocity])
                             if (cc.sustain[channel])
-                                pedalNotes.push([0x80 | channel, note, velocity])
+                                pedalNotes.push([0x80 | channel, note, 0])
                             if (settings.visualizer) {
                                 if (settings.noteBuffer.enabled)
                                     q.push({
@@ -263,7 +273,7 @@ let start = (async(chosen) => {
                     if (settings.visualizer) await thread.terminate()
                     console.clear()
                     console.log(color.greenBright('MIDI file has ended!'))
-                    console.log(color.whiteBright('Hit Ctrl+C to exit now.'))
+                    console.log(color.whiteBright('Hit ESC to exit now.'))
                 }
                 playerJZZ.connect(jzzPlayerOut)
                 end = performance.now()
@@ -275,6 +285,22 @@ let start = (async(chosen) => {
                     paused = !paused
                     if (settings.visualizer) thread.postMessage({ m: 'i', paused })
                 }
+                process.stdin.on('data', e => {
+                    let decoder = new TextDecoder()
+                    let tx = decoder.decode(e)
+                    switch (tx) {
+                        case '\x1b':
+                            console.clear()
+                            console.log(color.redBright('Exited.'))
+                            process.exit()
+                        case '\x1b[D': // left
+                            playerJZZ.jumpMS(Math.max(0, playerJZZ.positionMS() - 3000))
+                            break
+                        case '\x1b[C': // right
+                            playerJZZ.jumpMS(playerJZZ.positionMS() + 3000)
+                            break
+                    }
+                });
                 break
             case 3:
                 let playermpjs = new PlayerMPJS()
@@ -294,12 +320,12 @@ let start = (async(chosen) => {
                     switch (e.name) {
                         case 'Note off':
                             if (!cc.sustain[e.channel])
-                                output.sendMessage([0x80 | (e.channel - 1), e.noteNumber, e.velocity])
+                                output.sendMessage([0x80 | (e.channel - 1), e.noteNumber, 0])
                             break
                         case 'Note on':
                             output.sendMessage([0x90 | (e.channel - 1), e.noteNumber, e.velocity])
                             if (cc.sustain[e.channel])
-                                pedalNotes.push([0x80 | (e.channel - 1), e.noteNumber, e.velocity])
+                                pedalNotes.push([0x80 | (e.channel - 1), e.noteNumber, 0])
                             if (settings.visualizer) {
                                 if (settings.noteBuffer.enabled)
                                     q.push({
@@ -391,6 +417,23 @@ let start = (async(chosen) => {
                             break
                     }
                 })
+                process.stdin.on('data', e => {
+                    let decoder = new TextDecoder()
+                    let tx = decoder.decode(e)
+                    switch (tx) {
+                        case '\x1b':
+                            console.clear()
+                            console.log(color.redBright('Exited.'))
+                            process.exit()
+                        case '\x1b[D': // left
+                            let s = playermpjs.getSongTime() - playermpjs.getSongTimeRemaining()
+                            playermpjs.skipToSeconds(s - 3.0)
+                            break
+                        case '\x1b[C': // right
+                            playermpjs.skipToSeconds(s + 3.0)
+                            break
+                    }
+                });
                 break
         }
     } catch (err) {
@@ -430,11 +473,17 @@ process.stdin.on('data', e => {
                 process.exit()
         }
     } else {
-        switch (e[0]) {
-            case 0x03:
+        let decoder = new TextDecoder()
+        let tx = decoder.decode(e)
+        switch (tx) {
+            case '\x1b':
                 console.clear()
                 console.log(color.redBright('Exited.'))
                 process.exit()
+            case '\x1b[D': // left
+                break
+            case '\x1b[C': // right
+                break
         }
     }
 });
