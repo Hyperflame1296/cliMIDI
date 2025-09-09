@@ -11,7 +11,11 @@ let remove_json_comments = require('strip-json-comments').default;
 let settingsFile = fs.existsSync('./settings.json')
 process.stdin.setRawMode(true)
 let defaultSettings = {
-    noteBufferLength: 100,
+    visualizer: true,
+    noteBuffer: {
+        enabled: true,
+        length: 100
+    },
     maxFPS: 60
 }
 console.clear()
@@ -20,8 +24,9 @@ if (!settingsFile) {
     fs.writeFileSync('./settings.json', JSON.stringify(defaultSettings, null, 4), 'utf-8')
 }
 let settings = JSON.parse(remove_json_comments(fs.readFileSync('./settings.json', 'utf-8')))
+if (settings.noteBuffer.enabled && !settings.visualizer) console.warn('WARNING - if visualizer is disabled, noteBuffer should also be!')
 let start = (async(chosen) => {
-    let thread = new Worker('./threads/visualizer.js')
+    if (settings.visualizer) var thread = new Worker('./threads/visualizer.js')
     try {
         console.clear()
         let midiPath = await dialog.openFileName({
@@ -36,11 +41,11 @@ let start = (async(chosen) => {
             multiple: false
         })
         let q = []
-        thread.postMessage({ 
+        if (settings.visualizer) thread.postMessage({ 
             m: 'i', 
             width: process.stdout.columns, 
             height: process.stdout.rows, 
-            noteBufferLength: settings.noteBufferLength, 
+            noteBuffer: settings.noteBuffer, 
             maxFPS: settings.maxFPS, 
             paused: false 
         })
@@ -68,15 +73,17 @@ let start = (async(chosen) => {
         }
         let pedalNotes = []
         let lastQueue = performance.now()
-        setInterval(() => {
-            thread.postMessage({ m: 'q', q, lastQueue: performance.now() })
-            q = []
-            lastQueue = performance.now()
-        }, settings.noteBufferLength)
+        if (settings.visualizer)
+            if (settings.noteBuffer.enabled)
+                setInterval(() => {
+                    thread.postMessage({ m: 'q', q, lastQueue: performance.now() })
+                    q = []
+                    lastQueue = performance.now()
+                }, settings.noteBuffer.length)
         let paused = false
         let pause = () => {
             paused = !paused
-            thread.postMessage({ m: 'i', paused })
+            if (settings.visualizer) thread.postMessage({ m: 'i', paused })
         }
         process.stdin.on('data', e => {
             switch (e[0]) {
@@ -84,12 +91,19 @@ let start = (async(chosen) => {
                     pause()
             }
         });
+        let begin
+        let end;
         switch (chosen) {
             case 1:
                 let player = new Player()
-                thread.postMessage({ m: 'i', loading: true })
+                begin = performance.now()
+                if (!settings.visualizer) console.log(color.yellowBright('Loading MIDI...'))
+                if (settings.visualizer) thread.postMessage({ m: 'i', loading: true })
                 await player.loadFile(midiPath)
-                thread.postMessage({ m: 'i', loading: false })
+                end = performance.now()
+                if (!settings.visualizer) console.log(color.cyanBright('Loaded MIDI! ') + color.white(`(in ${((end - begin) / 1000).toFixed(2)}s)`))
+                if (!settings.visualizer) console.log(color.greenBright('Playing MIDI...'))
+                if (settings.visualizer) thread.postMessage({ m: 'i', loading: false })
                 player.play()
                 player.on('midiEvent', e => {
                     switch (e.type) {
@@ -101,8 +115,11 @@ let start = (async(chosen) => {
                             output.sendMessage([0x90 | e.channel, e.note, e.velocity])
                             if (cc.sustain[e.channel])
                                 pedalNotes.push([0x80 | e.channel, e.note, e.velocity])
-                            e.t = performance.now() - lastQueue
-                            q.push(e)
+                            if (settings.visualizer) {
+                                if (settings.noteBuffer.enabled)
+                                    q.push({ t: performance.now() - lastQueue, ...e })
+                                else thread.postMessage({ m: 'n', ...e })
+                            }
                             break
                         case 11:
                             switch (e.ccNum) {
@@ -157,15 +174,18 @@ let start = (async(chosen) => {
                         case 255:
                             switch (e.metaType) {
                                 case 81:
-                                    e.t = performance.now() - lastQueue
-                                    q.push(e)
+                                    if (settings.visualizer) {
+                                        if (settings.noteBuffer.enabled)
+                                            q.push({ t: performance.now() - lastQueue, ...e })
+                                        else thread.postMessage(e)
+                                    }
                                     break
                             }
                             break
                     }
                 })
                 player.on('endOfFile', async() => {
-                    await thread.terminate()
+                    if (settings.visualizer) await thread.terminate()
                     console.clear()
                     console.log(color.greenBright('MIDI file has ended!'))
                     console.log(color.whiteBright('Hit Ctrl+C to exit now.'))
@@ -173,7 +193,7 @@ let start = (async(chosen) => {
                 pause = () => {
                     paused ? player.play() : player.pause()
                     paused = !paused
-                    thread.postMessage({ m: 'i', paused })
+                    if (settings.visualizer) thread.postMessage({ m: 'i', paused })
                 }
                 break
             case 2:
@@ -192,52 +212,82 @@ let start = (async(chosen) => {
                             output.sendMessage([0x90 | channel, note, velocity])
                             if (cc.sustain[channel])
                                 pedalNotes.push([0x80 | channel, note, velocity])
-                            q.push({
-                                type: 9,
-                                channel,
-                                note,
-                                velocity,
-                                t: performance.now() - lastQueue
-                            })
+                            if (settings.visualizer) {
+                                if (settings.noteBuffer.enabled)
+                                    q.push({
+                                        type: 9,
+                                        channel,
+                                        note,
+                                        velocity,
+                                        t: performance.now() - lastQueue
+                                    })
+                                else
+                                    thread.postMessage({
+                                        m: 'n',
+                                        type: 9,
+                                        channel,
+                                        note,
+                                        velocity
+                                    })
+                            }
                         } else if (msg.isTempo()) {
                             let uspq = msg.getTempo()
-                            q.push({
-                                type: 255,
-                                metaType: 81,
-                                uspq,
-                                t: performance.now() - lastQueue,
-                            })
+                            if (settings.visualizer) {
+                                if (settings.noteBuffer.enabled)
+                                    q.push({
+                                        type: 255,
+                                        metaType: 81,
+                                        uspq,
+                                        t: performance.now() - lastQueue,
+                                    })
+                                else
+                                    thread.postMessage({
+                                        m: 'n',
+                                        type: 255,
+                                        metaType: 81,
+                                        uspq
+                                    })
+                            }
                         }// else if (msg.isSysEx()) console.log(msg.getSysExId())
                     }
                 })
                 JZZ.addMidiOut('jzzPlayerOut', widget)
                     let jzzPlayerOut = JZZ()
                         .openMidiOut('jzzPlayerOut')
-
+                if (!settings.visualizer) console.log(color.yellowBright('Loading MIDI...'))
+                begin = performance.now()
                 let smf = new JZZ.MIDI.SMF(fs.readFileSync(midiPath))
                 let playerJZZ = smf.player()
                 playerJZZ.onEnd = async() => {
-                    await thread.terminate()
+                    if (settings.visualizer) await thread.terminate()
                     console.clear()
                     console.log(color.greenBright('MIDI file has ended!'))
                     console.log(color.whiteBright('Hit Ctrl+C to exit now.'))
                 }
                 playerJZZ.connect(jzzPlayerOut)
+                end = performance.now()
+                if (!settings.visualizer) console.log(color.cyanBright('Loaded MIDI! ') + color.white(`(in ${((end - begin) / 1000).toFixed(2)}s)`))
+                if (!settings.visualizer) console.log(color.greenBright('Playing MIDI...'))
                 playerJZZ.play()
                 pause = () => {
                     paused ? playerJZZ.resume() : playerJZZ.pause()
                     paused = !paused
-                    thread.postMessage({ m: 'i', paused })
+                    if (settings.visualizer) thread.postMessage({ m: 'i', paused })
                 }
                 break
             case 3:
                 let playermpjs = new PlayerMPJS()
+                if (!settings.visualizer) console.log(color.yellowBright('Loading MIDI...'))
+                begin = performance.now()
                 playermpjs.loadFile(midiPath)
+                end = performance.now()
+                if (!settings.visualizer) console.log(color.cyanBright('Loaded MIDI! ') + color.white(`(in ${((end - begin) / 1000).toFixed(2)}s)`))
+                if (!settings.visualizer) console.log(color.greenBright('Playing MIDI...'))
                 playermpjs.play()
                 pause = () => {
                     paused ? playermpjs.play() : playermpjs.pause()
                     paused = !paused
-                    thread.postMessage({ m: 'i', paused })
+                    if (settings.visualizer) thread.postMessage({ m: 'i', paused })
                 }
                 playermpjs.on('midiEvent', e => {
                     switch (e.name) {
@@ -249,14 +299,26 @@ let start = (async(chosen) => {
                             output.sendMessage([0x90 | (e.channel - 1), e.noteNumber, e.velocity])
                             if (cc.sustain[e.channel])
                                 pedalNotes.push([0x80 | (e.channel - 1), e.noteNumber, e.velocity])
-                            q.push({
-                                type: 9,
-                                track: e.track - 2,
-                                channel: e.channel - 1,
-                                note: e.noteNumber,
-                                velocity: e.velocity,
-                                t: performance.now() - lastQueue,
-                            })
+                            if (settings.visualizer) {
+                                if (settings.noteBuffer.enabled)
+                                    q.push({
+                                        type: 9,
+                                        track: e.track - 2,
+                                        channel: e.channel - 1,
+                                        note: e.noteNumber,
+                                        velocity: e.velocity,
+                                        t: performance.now() - lastQueue,
+                                    })
+                                else
+                                    thread.postMessage({
+                                        m: 'n',
+                                        type: 9,
+                                        track: e.track - 2,
+                                        channel: e.channel - 1,
+                                        note: e.noteNumber,
+                                        velocity: e.velocity
+                                    })
+                            }
                             break
                         case 'Controller Change':
                             switch (e.number) {
@@ -309,19 +371,29 @@ let start = (async(chosen) => {
                             }
                             break
                         case 'Set Tempo':
-                            q.push({
-                                type: 255,
-                                metaType: 81,
-                                uspq: 60000000 / e.data,
-                                t: performance.now() - lastQueue
-                            })
+                            if (settings.visualizer) {
+                                if (settings.noteBuffer.enabled)
+                                    q.push({
+                                        type: 255,
+                                        metaType: 81,
+                                        uspq: 60000000 / e.data,
+                                        t: performance.now() - lastQueue
+                                    })
+                                else
+                                    thread.postMessage({
+                                        m: 'n',
+                                        type: 255,
+                                        metaType: 81,
+                                        uspq: 60000000 / e.data
+                                    })
+                            }
                             break
                     }
                 })
                 break
         }
     } catch (err) {
-        await thread.terminate()
+        if (settings.visualizer) await thread.terminate()
         console.clear()
         console.log(color.redBright('An error has occured!'))
         console.log(color.whiteBright(`${err.stack}`))

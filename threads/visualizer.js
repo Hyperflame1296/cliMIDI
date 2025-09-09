@@ -97,7 +97,11 @@ try {
     let info = {
         width: 128,
         height: 36,
-        noteBufferLength: 100,
+        visualizer: true,
+        noteBuffer: {
+            enabled: true,
+            length: 100
+        },
         maxFPS: 60,
         paused: false,
         loading: false,
@@ -131,6 +135,23 @@ try {
                                 break
                         }
                     }, e.t)
+                }
+                break
+            case 'n':
+                switch (m.type) {
+                    case 9: // note on
+                        if (keys[m.note].blips.length >= 16)
+                            keys[m.note].blips.shift()
+                        keys[m.note].blips.push({ color: colors[(m.track ?? (m.channel ?? 0)) % colors.length], timePlayed: performance.now(), prevLength: keys[m.note].blips.length })
+                        meta.nc += 1
+                        break
+                    case 255:
+                        switch (m.metaType) {
+                            case 81:
+                                meta.tempo = 60_000_000 / m.uspq
+                                break
+                        }
+                        break
                 }
                 break
         }
@@ -194,7 +215,7 @@ try {
             frame += ansi.moveCursor(0, y) + ' '.repeat((info.width) - 1)
             switch (y) {
                 case 18:
-                    frame += ansi.moveCursor(0, 18) + color.greenBright(`Note buffer length: ${info.noteBufferLength}ms`)
+                    frame += ansi.moveCursor(0, 18) + (info.noteBuffer.enabled ? color.greenBright(`Note buffer length: ${info.noteBuffer.length}ms`) : color.greenBright(`Note buffer length: `) + color.white('(disabled)'))
                     break
                 case 19:
                     frame += ansi.moveCursor(0, 19) + color.greenBright(`Max FPS: ${(info.maxFPS).toFixed(2)}fps`)

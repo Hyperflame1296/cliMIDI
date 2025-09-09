@@ -1,4 +1,8 @@
 {
-    "noteBufferLength": 100,
+    "visualizer": true,
+    "noteBuffer": {
+        "enabled": true,
+        "length": 100
+    },
     "maxFPS": 60
 }
