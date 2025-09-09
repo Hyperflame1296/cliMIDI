@@ -141,3 +141,4 @@ vite.config.ts.timestamp-*
 # cliMIDI stuff
 midis/
 modules/a/
+settings.json
