@@ -35,6 +35,7 @@ let start = (async(chosen) => {
             height: process.stdout.rows, 
             noteBuffer: settings.noteBuffer, 
             maxFPS: settings.maxFPS, 
+            nodeVersions: process.versions,
             chosen,
             paused: false 
         })

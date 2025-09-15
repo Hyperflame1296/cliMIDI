@@ -102,6 +102,7 @@ try {
             enabled: true,
             length: 100
         },
+        nodeVersions: {},
         maxFPS: 60,
         chosen: 1,
         paused: false,
@@ -174,6 +175,14 @@ try {
         else
             return 'Unknown'
     }
+    let getVersionText = () => {
+        if (info.nodeVersions.bun)
+            return `Bun ${info.nodeVersions.bun}`
+        else if (info.nodeVersions.node)
+            return `Node ${info.nodeVersions.node}`
+        else
+            return 'Unknown JS runtime'
+    }
     function update() {
         let frame = '';
         let now = performance.now();
@@ -231,7 +240,10 @@ try {
                     frame += ansi.moveCursor(0, 20) + color.yellowBright(getStatusText())
                     break
                 case 21:
-                    frame += ansi.moveCursor(0, 21) + color.whiteBright(
+                    frame += ansi.moveCursor(0, 21) + color.yellowBright(getVersionText())
+                    break
+                case 22:
+                    frame += ansi.moveCursor(0, 22) + color.whiteBright(
                         info.chosen != 1 ? 
                             [
                                 'Keybinds:',
